@@ -1,6 +1,8 @@
 ## redfour
 
-A small library that implements a binary semaphore using Redis.
+A small library that implements a binary semaphore using Redis. This is useful if you'd like to restrict access to one part of your code such that only one resource (the one with the lock) can access it at a time. Then, if another resource wants to access it, it will have to wait until the first resource is finished.
+
+For example, say you have code that checks to see if an access token is expired, and then if it is, refreshes it. You don't want two parallel processes trying to check for expiration - both will consider the token expired and refresh at the same time. Instead, you can use this module to ensure only one resource has access to that codepath at a time.
 
 ## Install
 
