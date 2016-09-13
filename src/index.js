@@ -212,7 +212,7 @@ Object.assign(Lock.prototype, {
         // in any case we do not make a next polling try sooner than after 100ms delay
         // We might make the call sooner if the key is released manually and we get a notification
         // from Redis PubSub about it
-        ttlTimer = setTimeout(tryAcquire, Math.max(lock.ttl || 100));
+        ttlTimer = setTimeout(tryAcquire, Math.max(lock.ttl, 100));
       });
     };
 
