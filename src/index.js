@@ -51,7 +51,7 @@ Object.assign(Lock.prototype, {
    * Acquire a lock for a specific ID value. Callback returns the following value:
    *
    *   {
-   *     id: Message ID
+   *     id: id of lock
    *     success: either true (lock was acquired) of false (lock was not aquired)
    *     index: modification index for current lock
    *     ttl: expiration time for the lock
@@ -112,7 +112,7 @@ Object.assign(Lock.prototype, {
    * Callback returns the following value:
    *
    *   {
-   *     id: Message ID
+   *     id: id of lock
    *     success: either true (lock was released or did not exist) of false (lock was not released)
    *     result: status text. Either 'expired', 'released' or 'conflict'
    *   }
@@ -160,7 +160,7 @@ Object.assign(Lock.prototype, {
    * up to {waitTtl} milliseconds before giving up. The callback returns the following values:
    *
    *   {
-   *     id: Message ID
+   *     id: id of lock
    *     success: either true (lock was acquired) of false (lock was not aquired by given ttl)
    *     index: modification index for current lock
    *     ttl: expiration time for the lock
