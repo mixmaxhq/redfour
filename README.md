@@ -39,7 +39,7 @@ testLock.waitAcquireLock(id, 60 * 1000 /* Lock expires after 60sec */ , 10 * 100
 
 // When the original lock is released, `waitAcquireLock` is fired on the other server.
 setTimeout(() => {
-  testLock.releaseLock(id, firstlock.index, (err) => {
+  testLock.releaseLock(firstlock, (err) => {
     if (err) {
       console.log('error releasing', err);
     } else {

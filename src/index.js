@@ -117,11 +117,10 @@ Object.assign(Lock.prototype, {
    *     result: status text. Either 'expired', 'released' or 'conflict'
    *   }
    *
-   * @param {String} id Identifies the lock
-   * @param {Number} index Modification index of the previously acquired lock
+   * @param {Object} lock A lock returned by acquireLock or waitAcquireLock
    * @param {Function} done Callback
    */
-  releaseLock: function(id, index, done) {
+  releaseLock: function(lock, done) {
     var releaseScript = `
         local index = tonumber(ARGV[1]);
         if redis.call("EXISTS", KEYS[1]) == 0 then
@@ -142,11 +141,11 @@ Object.assign(Lock.prototype, {
     this._scripty.loadScript('releaseScript', releaseScript, (err, script) => {
       if (err) return done(err);
 
-      script.run(1, `${this._namespace}:${id}`, index, (err, evalResponse) => {
+      script.run(1, `${this._namespace}:${lock.id}`, lock.index, (err, evalResponse) => {
         if (err) return done(err);
 
         var response = {
-          id: id,
+          id: lock.id,
           success: !!evalResponse[0],
           result: evalResponse[1],
           index: evalResponse[2]
