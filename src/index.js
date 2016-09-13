@@ -68,10 +68,7 @@ Object.assign(Lock.prototype, {
     var acquireScript = `
         local ttl=tonumber(ARGV[1]);
         if redis.call("EXISTS", KEYS[1]) == 1 then
-          local data = {
-            ["index"]=tonumber(redis.call("HGET", KEYS[1], "index"))
-          };
-          return {0, data.index, redis.call("PTTL", KEYS[1])};
+          return {0, -1, redis.call("PTTL", KEYS[1])};
         end;
         --[[
           Use a global incrementing counter
