@@ -53,7 +53,6 @@ Object.assign(Lock.prototype, {
    *   {
    *     id: Message ID
    *     success: either true (lock was acquired) of false (lock was not aquired)
-   *     state: state value for current lock
    *     index: modification index for current lock
    *     ttl: expiration time for the lock
    *   }
@@ -62,19 +61,17 @@ Object.assign(Lock.prototype, {
    * lock holders would not be able to mess with newer locks for the same resource.
    *
    * @param {String} id Identifies the lock
-   * @param {String} state Informational text about the current state ('create', 'update', 'delete')
    * @param {Number} ttl Automatically release lock after TTL (ms). Must be positive integer
    * @param {Function} done Callback
    */
-  acquireLock: function(id, state, ttl, done) {
+  acquireLock: function(id, ttl, done) {
     var acquireScript = `
-        local ttl=tonumber(ARGV[2]);
+        local ttl=tonumber(ARGV[1]);
         if redis.call("EXISTS", KEYS[1]) == 1 then
           local data = {
-            ["state"]=redis.call("HGET", KEYS[1], "state"),
             ["index"]=tonumber(redis.call("HGET", KEYS[1], "index"))
           };
-          return {0, data.state, data.index, redis.call("PTTL", KEYS[1])};
+          return {0, data.index, redis.call("PTTL", KEYS[1])};
         end;
         --[[
           Use a global incrementing counter
@@ -84,23 +81,22 @@ Object.assign(Lock.prototype, {
           of years to reach that limit assuming we make 100k incrementations in a second
         --]]
         local index = redis.call("INCR", KEYS[2]);
-        redis.call("HMSET", KEYS[1], "state", ARGV[1], "index", index);
+        redis.call("HMSET", KEYS[1], "index", index);
         redis.call("PEXPIRE", KEYS[1], ttl);
-        return {1, ARGV[1], index, ttl};
+        return {1, index, ttl};
       `;
 
     this._scripty.loadScript('acquireScript', acquireScript, (err, script) => {
       if (err) return done(err);
 
-      script.run(2, `${this._namespace}:${id}`, `${this._namespace}index`, state, ttl, (err, evalResponse) => {
+      script.run(2, `${this._namespace}:${id}`, `${this._namespace}index`, ttl, (err, evalResponse) => {
         if (err) return done(err);
 
         var response = {
           id: id,
           success: !!evalResponse[0],
-          state: evalResponse[1],
-          index: evalResponse[2],
-          ttl: evalResponse[3]
+          index: evalResponse[1],
+          ttl: evalResponse[2]
         };
         done(null, response);
       });
@@ -132,16 +128,15 @@ Object.assign(Lock.prototype, {
           return {1, "expired", "expired", 0};
         end;
         local data = {
-          ["state"]=redis.call("HGET", KEYS[1], "state"),
           ["index"]=tonumber(redis.call("HGET", KEYS[1], "index"))
         };
         if data.index == index then
           redis.call("DEL", KEYS[1]);
           -- Notify potential queue that this lock is now freed
           redis.call("PUBLISH", "${this._namespace}-release", KEYS[1]);
-          return {1, "released", data.state, data.index};
+          return {1, "released", data.index};
         end;
-        return {0, "conflict", data.state, data.index};
+        return {0, "conflict", data.index};
       `;
 
     this._scripty.loadScript('releaseScript', releaseScript, (err, script) => {
@@ -154,8 +149,7 @@ Object.assign(Lock.prototype, {
           id: id,
           success: !!evalResponse[0],
           result: evalResponse[1],
-          state: evalResponse[2],
-          index: evalResponse[3]
+          index: evalResponse[2]
         };
         done(null, response);
       });
@@ -169,18 +163,16 @@ Object.assign(Lock.prototype, {
    *   {
    *     id: Message ID
    *     success: either true (lock was acquired) of false (lock was not aquired by given ttl)
-   *     state: state value for current lock
    *     index: modification index for current lock
    *     ttl: expiration time for the lock
    *   }
    *
    * @param {String} id Identifies the lock
-   * @param {String} state Informational text about the current state ('create', 'update', 'delete')
    * @param {Number} ttl Automatically release acquired lock after TTL (ms). Must be positive integer
    * @param {Number} waitTtl Give up until ttl (in ms) or wait indefinitely if value is 0
    * @param {Function} done Callback
    */
-  waitAcquireLock: function(id, state, lockTtl, waitTtl, done) {
+  waitAcquireLock: function(id, lockTtl, waitTtl, done) {
     var expired = false; // flag to indicate that the TTL wait time was expired
     var acquiring = false; // flag to indicate that a Redis query is in process
 
@@ -205,7 +197,7 @@ Object.assign(Lock.prototype, {
       this._subscribers.removeListener(`${this._namespace}:${id}`, tryAcquire); // clears pubsub listener
       clearTimeout(ttlTimer); // clears the timer that waits until existing lock is expired
       acquiring = true;
-      this.acquireLock(id, state, lockTtl, (err, lock) => {
+      this.acquireLock(id, lockTtl, (err, lock) => {
         acquiring = false;
         if (err) {
           // stop waiting if we hit into an error

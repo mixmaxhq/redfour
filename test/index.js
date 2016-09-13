@@ -26,14 +26,13 @@ describe('lock', function() {
   });
 
   it('should acquire and release a lock only with a valid index', function(done) {
-    testLock.acquireLock(testKey, 'TESTSTATE', 60 * 100, (err, lock) => {
+    testLock.acquireLock(testKey, 60 * 100, (err, lock) => {
       expect(err).not.to.be.ok;
       expect(lock.success).to.equal(true);
       expect(lock.id).to.equal(testKey);
-      expect(lock.state).to.equal('TESTSTATE');
       expect(lock.index).to.be.above(0);
 
-      testLock.acquireLock(testKey, 'OTHERSTATE', 60 * 100, (err, invalidLock) => {
+      testLock.acquireLock(testKey, 60 * 100, (err, invalidLock) => {
         expect(err).not.to.be.ok;
         expect(invalidLock.success).to.equal(false);
 
@@ -52,15 +51,14 @@ describe('lock', function() {
   });
 
   it('should wait and acquire a lock', function(done) {
-    testLock.acquireLock(testKey, 'TESTSTATE', 1 * 60 * 1000, function(err, initialLock) {
+    testLock.acquireLock(testKey, 1 * 60 * 1000, function(err, initialLock) {
       expect(err).to.not.be.ok;
       expect(initialLock.success).to.equal(true);
 
       var start = Date.now();
-      testLock.waitAcquireLock(testKey, 'ANOTHERSTATE', 60 * 100, 3000, function(err, newLock) {
+      testLock.waitAcquireLock(testKey, 60 * 100, 3000, function(err, newLock) {
         expect(err).to.not.be.ok;
         expect(newLock.success).to.equal(true);
-        expect(newLock.state).to.equal('ANOTHERSTATE');
         expect(Date.now() - start).to.be.above(1450);
 
         testLock.releaseLock(testKey, newLock.index, function(err) {
@@ -78,15 +76,14 @@ describe('lock', function() {
   });
 
   it('Should wait and not acquire a lock', function(done) {
-    testLock.acquireLock(testKey, 'TESTSTATE', 1 * 60 * 1000, function(err, initialLock) {
+    testLock.acquireLock(testKey, 1 * 60 * 1000, function(err, initialLock) {
       expect(err).to.not.be.ok;
       expect(initialLock.success).to.equal(true);
 
       var start = Date.now();
-      testLock.waitAcquireLock(testKey, 'ANOTHERSTATE', 1 * 60 * 1000, 1500, function(err, newLock) {
+      testLock.waitAcquireLock(testKey, 1 * 60 * 1000, 1500, function(err, newLock) {
         expect(err).to.not.be.ok;
         expect(newLock.success).to.equal(false);
-        expect(newLock.state).to.equal('TESTSTATE');
         expect(Date.now() - start).to.be.above(1450);
         testLock.releaseLock(testKey, initialLock.index, function(err) {
           expect(err).to.not.be.ok;
