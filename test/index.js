@@ -36,11 +36,14 @@ describe('lock', function() {
         expect(err).not.to.be.ok;
         expect(invalidLock.success).to.equal(false);
 
-        testLock.releaseLock(testKey, -10, (err, invalidRelease) => {
+        testLock.releaseLock({
+          id: testKey,
+          index: -10
+        }, (err, invalidRelease) => {
           expect(err).not.to.be.ok;
           expect(invalidRelease.success).to.equal(false);
 
-          testLock.releaseLock(testKey, lock.index, (err, release) => {
+          testLock.releaseLock(lock, (err, release) => {
             expect(err).not.to.be.ok;
             expect(release.success).to.equal(true);
             done();
@@ -61,14 +64,14 @@ describe('lock', function() {
         expect(newLock.success).to.equal(true);
         expect(Date.now() - start).to.be.above(1450);
 
-        testLock.releaseLock(testKey, newLock.index, function(err) {
+        testLock.releaseLock(newLock, function(err) {
           expect(err).to.not.be.ok;
           done();
         });
       });
 
       setTimeout(function() {
-        testLock.releaseLock(testKey, initialLock.index, function(err) {
+        testLock.releaseLock(initialLock, function(err) {
           expect(err).to.not.be.ok;
         });
       }, 1500);
@@ -85,7 +88,7 @@ describe('lock', function() {
         expect(err).to.not.be.ok;
         expect(newLock.success).to.equal(false);
         expect(Date.now() - start).to.be.above(1450);
-        testLock.releaseLock(testKey, initialLock.index, function(err) {
+        testLock.releaseLock(initialLock, function(err) {
           expect(err).to.not.be.ok;
           done();
         });

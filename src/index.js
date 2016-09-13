@@ -51,16 +51,15 @@ Object.assign(Lock.prototype, {
    * Acquire a lock for a specific ID value. Callback returns the following value:
    *
    *   {
-   *     id: Message ID
    *     success: either true (lock was acquired) of false (lock was not aquired)
-   *     index: modification index for current lock
    *     ttl: expiration time for the lock
    *   }
    *
    * Lock index is a shared incrementing number (signed 64bit) that should ensure rogue
    * lock holders would not be able to mess with newer locks for the same resource.
    *
-   * @param {String} id Identifies the lock
+   * @param {String} id Identifies the lock. This is an arbitrary string that should be consistent among 
+   *    different processes trying to acquire this lock.
    * @param {Number} ttl Automatically release lock after TTL (ms). Must be positive integer
    * @param {Function} done Callback
    */
@@ -68,10 +67,7 @@ Object.assign(Lock.prototype, {
     var acquireScript = `
         local ttl=tonumber(ARGV[1]);
         if redis.call("EXISTS", KEYS[1]) == 1 then
-          local data = {
-            ["index"]=tonumber(redis.call("HGET", KEYS[1], "index"))
-          };
-          return {0, data.index, redis.call("PTTL", KEYS[1])};
+          return {0, -1, redis.call("PTTL", KEYS[1])};
         end;
         --[[
           Use a global incrementing counter
@@ -112,16 +108,14 @@ Object.assign(Lock.prototype, {
    * Callback returns the following value:
    *
    *   {
-   *     id: Message ID
    *     success: either true (lock was released or did not exist) of false (lock was not released)
    *     result: status text. Either 'expired', 'released' or 'conflict'
    *   }
    *
-   * @param {String} id Identifies the lock
-   * @param {Number} index Modification index of the previously acquired lock
+   * @param {Object} lock A lock returned by acquireLock or waitAcquireLock
    * @param {Function} done Callback
    */
-  releaseLock: function(id, index, done) {
+  releaseLock: function(lock, done) {
     var releaseScript = `
         local index = tonumber(ARGV[1]);
         if redis.call("EXISTS", KEYS[1]) == 0 then
@@ -142,11 +136,11 @@ Object.assign(Lock.prototype, {
     this._scripty.loadScript('releaseScript', releaseScript, (err, script) => {
       if (err) return done(err);
 
-      script.run(1, `${this._namespace}:${id}`, index, (err, evalResponse) => {
+      script.run(1, `${this._namespace}:${lock.id}`, lock.index, (err, evalResponse) => {
         if (err) return done(err);
 
         var response = {
-          id: id,
+          id: lock.id,
           success: !!evalResponse[0],
           result: evalResponse[1],
           index: evalResponse[2]
@@ -161,13 +155,12 @@ Object.assign(Lock.prototype, {
    * up to {waitTtl} milliseconds before giving up. The callback returns the following values:
    *
    *   {
-   *     id: Message ID
    *     success: either true (lock was acquired) of false (lock was not aquired by given ttl)
-   *     index: modification index for current lock
    *     ttl: expiration time for the lock
    *   }
    *
-   * @param {String} id Identifies the lock
+   * @param {String} id Identifies the lock. This is an arbitrary string that should be consistent among 
+   *    different processes trying to acquire this lock.
    * @param {Number} ttl Automatically release acquired lock after TTL (ms). Must be positive integer
    * @param {Number} waitTtl Give up until ttl (in ms) or wait indefinitely if value is 0
    * @param {Function} done Callback
@@ -216,7 +209,7 @@ Object.assign(Lock.prototype, {
         // in any case we do not make a next polling try sooner than after 100ms delay
         // We might make the call sooner if the key is released manually and we get a notification
         // from Redis PubSub about it
-        ttlTimer = setTimeout(tryAcquire, Math.max(lock.ttl || 100));
+        ttlTimer = setTimeout(tryAcquire, Math.max(lock.ttl, 100));
       });
     };
 

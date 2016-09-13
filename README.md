@@ -1,6 +1,10 @@
 ## redfour
 
-A small library that implements a binary semaphore using Redis.
+A small library that implements a binary semaphore using Redis. This is useful if you'd like to restrict access to one part of your code such that only one resource (the one with the lock) can access it at a time. Then, if another resource wants to access it, it will have to wait until the first resource is finished.
+
+[Other redis-based locks](https://github.com/TheDeveloper/warlock/blob/master/lib/warlock.js#L67) implement the 'wait' behavior using polling. Redfour's implemention is MUCH faster, as it relies on Redis pubsub notifications to get notified when the lock is released.
+
+For example, say you have code that checks to see if an access token is expired, and then if it is, refreshes it. You don't want two parallel processes trying to check for expiration - both will consider the token expired and refresh at the same time. Instead, you can use this module to ensure only one resource has access to that codepath at a time.
 
 ## Install
 
@@ -19,12 +23,14 @@ var id = Math.random();
 var firstlock;
 
 // First, acquire the lock.
-testLock.acquireLock(id, 60 * 1000 /* Lock expires after 60sec if not released */ , function(err, res) {
+testLock.acquireLock(id, 60 * 1000 /* Lock expires after 60sec if not released */ , function(err, lock) {
   if (err) {
     console.log('error acquiring', err);
+  } else if (!lock.success) {
+    console.log('lock exists', lock);
   } else {
     console.log('lock acquired initially');
-    firstlock = res;
+    firstlock = lock;
   }
 });
 
@@ -39,7 +45,7 @@ testLock.waitAcquireLock(id, 60 * 1000 /* Lock expires after 60sec */ , 10 * 100
 
 // When the original lock is released, `waitAcquireLock` is fired on the other server.
 setTimeout(() => {
-  testLock.releaseLock(id, firstlock.index, (err) => {
+  testLock.releaseLock(firstlock, (err) => {
     if (err) {
       console.log('error releasing', err);
     } else {
