@@ -19,12 +19,14 @@ var id = Math.random();
 var firstlock;
 
 // First, acquire the lock.
-testLock.acquireLock(id, 60 * 1000 /* Lock expires after 60sec if not released */ , function(err, res) {
+testLock.acquireLock(id, 60 * 1000 /* Lock expires after 60sec if not released */ , function(err, lock) {
   if (err) {
     console.log('error acquiring', err);
+  } else if (!lock.success) {
+    console.log('lock exists', lock);
   } else {
     console.log('lock acquired initially');
-    firstlock = res;
+    firstlock = lock;
   }
 });
 
