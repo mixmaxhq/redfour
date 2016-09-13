@@ -8,7 +8,7 @@ A small library that implements a binary semaphore using Redis.
 
 ## Usage example
 
-```
+```js
 var Lock = require('redfour');
 
 var testLock = new Lock({
@@ -20,21 +20,31 @@ var firstlock;
 
 // First, acquire the lock.
 testLock.acquireLock(id, 60 * 1000 /* Lock expires after 60sec if not released */ , function(err, res) {
-  if (err) console.log('error acquiring', err);
-  else firstlock = res;
+  if (err) {
+    console.log('error acquiring', err);
+  } else {
+    console.log('lock acquired initially');
+    firstlock = res;
+  }
 });
 
 // Another server might be waiting for the lock like this.
 testLock.waitAcquireLock(id, 60 * 1000 /* Lock expires after 60sec */ , 10 * 1000 /* Wait for lock for up to 10sec */ , function(err, lock) {
-  if (err) console.log('error wait acquiring', err);
-  else console.log('lock acquired! ', lock);
+  if (err) {
+    console.log('error wait acquiring', err);
+  } else {
+    console.log('lock acquired after wait!', lock);
+  }
 });
 
 // When the original lock is released, `waitAcquireLock` is fired on the other server.
 setTimeout(() => {
   testLock.releaseLock(id, firstlock.index, (err) => {
-    if (err) console.log('error releasing', err);
-    else console.log('got lock!');
+    if (err) {
+      console.log('error releasing', err);
+    } else {
+      console.log('released lock');
+    }
   });
 }, 3 * 1000);
 ```
