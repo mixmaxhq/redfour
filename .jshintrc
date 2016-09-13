@@ -1,0 +1,14 @@
+{
+  // Prohibit the use of undeclared variables.
+  "undef": true,
+
+  // Make JSHint aware of Node globals.
+  "node": true,
+
+  // Warn for unused variables and function parameters.
+  "unused": true,
+
+  "esnext": true,
+
+  "jasmine": true
+}
