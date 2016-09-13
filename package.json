@@ -25,10 +25,10 @@
   "devDependencies": {
     "chai": "^3.5.0",
     "mocha": "^3.0.2",
-    "redis-server": "0.0.3"
+    "redis-server": "^0.0.3"
   },
   "dependencies": {
-    "node-redis-scripty": "0.0.5",
+    "node-redis-scripty": "^0.0.5",
     "redis": "^2.6.2"
   }
 }
