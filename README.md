@@ -1,6 +1,8 @@
 ## redfour
 
-A small library that implements a binary semaphore using Redis. This is useful if you'd like to restrict access to one part of your code such that only one resource (the one with the lock) can access it at a time. Then, if another resource wants to access it, it will have to wait until the first resource is finished.
+A small library that implements a binary semaphore using Redis. See our [blog post](https://mixmax.com/blog/redfour-semaphore-redis-node) introducing this library.
+
+This is useful if you'd like to restrict access to one part of your code such that only one resource (the one with the lock) can access it at a time. Then, if another resource wants to access it, it will have to wait until the first resource is finished.
 
 [Other redis-based locks](https://github.com/TheDeveloper/warlock/blob/master/lib/warlock.js#L67) implement the 'wait' behavior using polling. Redfour's implemention is MUCH faster, as it relies on Redis pubsub notifications to get notified when the lock is released.
 
