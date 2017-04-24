@@ -10,7 +10,13 @@ For example, say you have code that checks to see if an access token is expired,
 
 ## Install
 
-`npm install redfour`
+```sh
+yarn add redfour
+```
+or
+```sh
+npm install redfour --save
+```
 
 ## Usage example
 
