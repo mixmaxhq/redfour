@@ -6,7 +6,7 @@ var RedisServer = require('redis-server');
 var redisServerInstance = new RedisServer(6399);
 
 // We need an unique key just in case a previous test run ended with an exception
-// and testing keys were not immediatelly deleted (these expire automatically after a while)
+// and testing keys were not immediately deleted (these expire automatically after a while)
 var testKey = 'TEST:' + Date.now();
 
 describe('lock', function() {
