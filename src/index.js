@@ -15,8 +15,10 @@ var EventEmitter = require('events').EventEmitter;
 function Lock(options) {
   options = options || {};
   options.namespace = options.namespace || 'lock';
+  options.number = options.number || 1;
 
   this._namespace = options.namespace;
+  this._number = options.number;
 
   // Create Redis connection for issuing normal commands
   this._redisConnection = redis.createClient(options.redis);
@@ -66,9 +68,21 @@ Object.assign(Lock.prototype, {
   acquireLock: function(id, ttl, done) {
     var acquireScript = `
         local ttl=tonumber(ARGV[1]);
-        if redis.call("EXISTS", KEYS[1]) == 1 then
-          return {0, -1, redis.call("PTTL", KEYS[1])};
+        local number=tonumber(ARGV[2]);
+        local counter = 1;
+        while counter <= number do
+          local key_id = KEYS[1] .. counter;
+          if redis.call("EXISTS", key_id) == 0 then
+            local index = redis.call("INCR", KEYS[2]);
+            redis.call("HMSET", key_id, "index", index);
+            redis.call("PEXPIRE", key_id, ttl);
+            return {1, index, ttl, key_id};
+          else
+            counter = counter + 1;
+          end;
         end;
+
+        return {0, -1, redis.call("PTTL", KEYS[1]), -1};
         --[[
           Use a global incrementing counter
           It is a signed 64bit integer, so it should not overflow any time soon.
@@ -76,23 +90,20 @@ Object.assign(Lock.prototype, {
           boundary would be much smaller Number.MAX_SAFE_INTEGER it would take thousands
           of years to reach that limit assuming we make 100k incrementations in a second
         --]]
-        local index = redis.call("INCR", KEYS[2]);
-        redis.call("HMSET", KEYS[1], "index", index);
-        redis.call("PEXPIRE", KEYS[1], ttl);
-        return {1, index, ttl};
       `;
 
     this._scripty.loadScript('acquireScript', acquireScript, (err, script) => {
       if (err) return done(err);
 
-      script.run(2, `${this._namespace}:${id}`, `${this._namespace}index`, ttl, (err, evalResponse) => {
+      script.run(2, `${this._namespace}:${id}`, `${this._namespace}index`, ttl, `${this._number}`, (err, evalResponse) => {
         if (err) return done(err);
 
         var response = {
           id: id,
           success: !!evalResponse[0],
           index: evalResponse[1],
-          ttl: evalResponse[2]
+          ttl: evalResponse[2],
+          key_id: evalResponse[3]
         };
         done(null, response);
       });
@@ -118,16 +129,17 @@ Object.assign(Lock.prototype, {
   releaseLock: function(lock, done) {
     var releaseScript = `
         local index = tonumber(ARGV[1]);
-        if redis.call("EXISTS", KEYS[1]) == 0 then
+        local key_id = ARGV[2];
+        if redis.call("EXISTS", key_id) == 0 then
           return {1, "expired", "expired", 0};
         end;
         local data = {
-          ["index"]=tonumber(redis.call("HGET", KEYS[1], "index"))
+          ["index"]=tonumber(redis.call("HGET", key_id, "index"))
         };
         if data.index == index then
-          redis.call("DEL", KEYS[1]);
+          redis.call("DEL", key_id);
           -- Notify potential queue that this lock is now freed
-          redis.call("PUBLISH", "${this._namespace}-release", KEYS[1]);
+          redis.call("PUBLISH", "${this._namespace}-release", key_id);
           return {1, "released", data.index};
         end;
         return {0, "conflict", data.index};
@@ -136,7 +148,7 @@ Object.assign(Lock.prototype, {
     this._scripty.loadScript('releaseScript', releaseScript, (err, script) => {
       if (err) return done(err);
 
-      script.run(1, `${this._namespace}:${lock.id}`, lock.index, (err, evalResponse) => {
+      script.run(1, `${this._namespace}:${lock.id}`, lock.index, lock.key_id, (err, evalResponse) => {
         if (err) return done(err);
 
         var response = {
