@@ -9,6 +9,7 @@ var EventEmitter = require('events').EventEmitter;
  *
  * @param {Object} options
  *   @property {String} redis Redis connection string.
+ *   @property {Object} redisConnection Pre-existing Redis connection.
  *   @property {String=} namespace - An optional namespace under which to prefix all Redis keys and
  *     channels used by this lock.
  */
@@ -19,14 +20,26 @@ function Lock(options) {
   this._namespace = options.namespace;
 
   // Create Redis connection for issuing normal commands
-  this._redisConnection = redis.createClient(options.redis);
+  if (options.redis) {
+    // If a Redis connection string was provided, prefer to use it.
+    this._redisConnection = redis.createClient(options.redis);
+
+    // Redis connection with subscribers is not allowed to issue commands
+    // so we need an extra connection to handle subscription messages
+    this._redisSubscriber = redis.createClient(options.redis);
+  } else if (options.redisConnection){
+    this._redisConnection = options.redisConnection;
+
+    // We can't use the same connection for Redis PUB/SUB, so make a new
+    // connection to the same Redis deployment.
+    const redisAddress = this._redisConnection.address;
+    this._redisSubscriber = redis.createClient(`redis://${redisAddress}`);
+  } else {
+    throw new Error('must provide either redis or redisConnection to redfour Lock');
+  }
 
   // Handler to run LUA scripts. Uses caching if possible
   this._scripty = new Scripty(this._redisConnection);
-
-  // Redis connection with subscribers is not allowed to issue commands
-  // so we need an extra connection to handle subscription messages
-  this._redisSubscriber = redis.createClient(options.redis);
 
   // Create event handler to register waiting locks
   this._subscribers = new EventEmitter();
