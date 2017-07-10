@@ -1,5 +1,6 @@
 'use strict';
 
+var assert = require('assert');
 var redis = require('redis');
 var Scripty = require('node-redis-scripty');
 var EventEmitter = require('events').EventEmitter;
@@ -23,19 +24,16 @@ function Lock(options) {
   // Create Redis connection for issuing normal commands as well as one for
   // the subscription, since a Redis connection with subscribers is not allowed
   // to issue commands.
-  if (options.redis) {
-    if (options.redis instanceof redis.RedisClient) {
-      this._redisConnection = options.redis;
+  assert(options.redis, 'Must provide a Redis connection string, options object, or client instance.');
+  if (options.redis instanceof redis.RedisClient) {
+    this._redisConnection = options.redis;
 
-      const redisAddress = this._redisConnection.address;
-      this._redisSubscriber = redis.createClient(`redis://${redisAddress}`);
-    } else {
-      // We assume `options.redis` is a connection string or options object.
-      this._redisConnection = redis.createClient(options.redis);
-      this._redisSubscriber = redis.createClient(options.redis);
-    }
+    const redisAddress = this._redisConnection.address;
+    this._redisSubscriber = redis.createClient(`redis://${redisAddress}`);
   } else {
-    throw new Error('must provide either redis or redisConnection to redfour Lock');
+    // We assume `options.redis` is a connection string or options object.
+    this._redisConnection = redis.createClient(options.redis);
+    this._redisSubscriber = redis.createClient(options.redis);
   }
 
   // Handler to run LUA scripts. Uses caching if possible

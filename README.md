@@ -26,7 +26,8 @@ var Lock = require('redfour');
 var testLock = new Lock({
   // Can also be an `Object` of options to pass to `redis.createClient`
   // https://github.com/NodeRedis/node_redis#rediscreateclient, or an existing
-  // instance of `RedisClient`.
+  // instance of `RedisClient` (if you want to reuse one connection, though this
+  // module must create a second).
   redis: 'redis://localhost:6381',
   namespace: 'mylock'
 });
