@@ -98,9 +98,9 @@ describe('lock', function() {
   });
 
   it('Should be able to be constructed from a pre-existing connection', function(done) {
-    const redisConnection = redis.createClient('redis://localhost:6399');
+    const client = redis.createClient('redis://localhost:6399');
     let testExistingLock = new Lock({
-      redisConnection,
+      redis: client,
       namespace: 'testExistingLock'
     });
 
@@ -128,11 +128,11 @@ describe('lock', function() {
     });
   });
 
-  it ('should throw if neither redis or redisConnection is provided', function() {
+  it ('should throw if redis is not provided', function() {
     expect(function() {
       new Lock({
         namespace: 'testExistingLock'
       });
-    }).to.throw(/must provide either redis or redisConnection to redfour Lock/);
+    }).to.throw(/must provide a redis/i);
   });
 });
