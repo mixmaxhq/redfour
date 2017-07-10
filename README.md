@@ -24,6 +24,9 @@ npm install redfour --save
 var Lock = require('redfour');
 
 var testLock = new Lock({
+  // Can also be an `Object` of options to pass to `redis.createClient`
+  // https://github.com/NodeRedis/node_redis#rediscreateclient, or an existing
+  // instance of `RedisClient`.
   redis: 'redis://localhost:6381',
   namespace: 'mylock'
 });
