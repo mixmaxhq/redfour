@@ -72,7 +72,7 @@ setTimeout(() => {
 We welcome pull requests! Please lint your code.
 
 ## Release History
-
+* 1.0.1 Fix issue where you could only pass in a Redis connection URI.
 * 1.0.0 Initial release.
 
 ## Etymology
