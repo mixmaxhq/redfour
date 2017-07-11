@@ -1,5 +1,6 @@
 'use strict';
 
+var assert = require('assert');
 var redis = require('redis');
 var Scripty = require('node-redis-scripty');
 var EventEmitter = require('events').EventEmitter;
@@ -8,7 +9,9 @@ var EventEmitter = require('events').EventEmitter;
  * Lock constructor.
  *
  * @param {Object} options
- *   @property {String} redis Redis connection string.
+ *   @property {String|Object} redis - Redis connection string, options to pass
+ *     to `redis.createClient`, or an existing instance of `RedisClient`.
+ *   @property {Object} redisConnection Pre-existing Redis connection.
  *   @property {String=} namespace - An optional namespace under which to prefix all Redis keys and
  *     channels used by this lock.
  */
@@ -18,15 +21,23 @@ function Lock(options) {
 
   this._namespace = options.namespace;
 
-  // Create Redis connection for issuing normal commands
-  this._redisConnection = redis.createClient(options.redis);
+  // Create Redis connection for issuing normal commands as well as one for
+  // the subscription, since a Redis connection with subscribers is not allowed
+  // to issue commands.
+  assert(options.redis, 'Must provide a Redis connection string, options object, or client instance.');
+  if (options.redis instanceof redis.RedisClient) {
+    this._redisConnection = options.redis;
+
+    const redisAddress = this._redisConnection.address;
+    this._redisSubscriber = redis.createClient(`redis://${redisAddress}`);
+  } else {
+    // We assume `options.redis` is a connection string or options object.
+    this._redisConnection = redis.createClient(options.redis);
+    this._redisSubscriber = redis.createClient(options.redis);
+  }
 
   // Handler to run LUA scripts. Uses caching if possible
   this._scripty = new Scripty(this._redisConnection);
-
-  // Redis connection with subscribers is not allowed to issue commands
-  // so we need an extra connection to handle subscription messages
-  this._redisSubscriber = redis.createClient(options.redis);
 
   // Create event handler to register waiting locks
   this._subscribers = new EventEmitter();

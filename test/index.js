@@ -2,6 +2,7 @@
 
 var Lock = require('../src');
 var expect = require('chai').expect;
+var redis = require('redis');
 var RedisServer = require('redis-server');
 var redisServerInstance = new RedisServer(6399);
 
@@ -94,5 +95,44 @@ describe('lock', function() {
         });
       });
     });
+  });
+
+  it('Should be able to be constructed from a pre-existing connection', function(done) {
+    const client = redis.createClient('redis://localhost:6399');
+    let testExistingLock = new Lock({
+      redis: client,
+      namespace: 'testExistingLock'
+    });
+
+    testExistingLock.acquireLock(testKey, 1 * 60 * 1000, function(err, initialLock) {
+      expect(err).to.not.be.ok;
+      expect(initialLock.success).to.equal(true);
+
+      var start = Date.now();
+      testExistingLock.waitAcquireLock(testKey, 60 * 100, 3000, function(err, newLock) {
+        expect(err).to.not.be.ok;
+        expect(newLock.success).to.equal(true);
+        expect(Date.now() - start).to.be.above(1450);
+
+        testExistingLock.releaseLock(newLock, function(err) {
+          expect(err).to.not.be.ok;
+          done();
+        });
+      });
+
+      setTimeout(function() {
+        testExistingLock.releaseLock(initialLock, function(err) {
+          expect(err).to.not.be.ok;
+        });
+      }, 1500);
+    });
+  });
+
+  it ('should throw if redis is not provided', function() {
+    expect(function() {
+      new Lock({
+        namespace: 'testExistingLock'
+      });
+    }).to.throw(/must provide a redis/i);
   });
 });
