@@ -25,7 +25,14 @@ function Lock(options) {
   // the subscription, since a Redis connection with subscribers is not allowed
   // to issue commands.
   assert(options.redis, 'Must provide a Redis connection string, options object, or client instance.');
-  if (options.redis instanceof redis.RedisClient) {
+
+  // Unfortunately, we cannot use `instanceof` to check redis connection
+  // objects (due to the module being loaded multiple times by different
+  // dependent modules). So instead, if the parameter is an object and it
+  // has the `address` property, then we know it's an instantiated Redis
+  // connection (as the constructor options do not provide for an address
+  // option).
+  if (options.redis instanceof Object && options.redis.address) {
     this._redisConnection = options.redis;
 
     const redisAddress = this._redisConnection.address;
