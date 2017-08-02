@@ -4,7 +4,8 @@
   "description": "A redis binary semaphore with async wait",
   "main": "src/index.js",
   "scripts": {
-    "test": "mocha"
+    "test": "mocha",
+    "lint": "eslint ."
   },
   "repository": {
     "type": "git",
@@ -24,11 +25,17 @@
   "homepage": "https://github.com/mixmaxhq/redfour#readme",
   "devDependencies": {
     "chai": "^3.5.0",
+    "eslint": ">=3",
+    "eslint-config-mixmax": "^0.6.0",
     "mocha": "^3.0.2",
+    "pre-commit": "^1.2.2",
     "redis-server": "^0.0.3"
   },
   "dependencies": {
     "node-redis-scripty": "^0.0.5",
     "redis": "^2.6.2"
-  }
+  },
+  "pre-commit": [
+    "lint"
+  ]
 }

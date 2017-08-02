@@ -190,18 +190,6 @@ Object.assign(Lock.prototype, {
     var ttlTimer;
     var expireLockTimer;
 
-    if (waitTtl > 0) {
-      expireLockTimer = setTimeout(() => {
-        expired = true;
-        this._subscribers.removeListener(`${this._namespace}:${id}`, tryAcquire);
-        clearTimeout(ttlTimer);
-        // Try one last time and return whatever the acquireLock returns
-        if (!acquiring) {
-          return tryAcquire();
-        }
-      }, waitTtl);
-    }
-
     // A looping function that tries to acquire a lock. The loop goes on until
     // the lock is acquired or the wait ttl kicks in
     var tryAcquire = () => {
@@ -230,6 +218,18 @@ Object.assign(Lock.prototype, {
         ttlTimer = setTimeout(tryAcquire, Math.max(lock.ttl, 100));
       });
     };
+
+    if (waitTtl > 0) {
+      expireLockTimer = setTimeout(() => {
+        expired = true;
+        this._subscribers.removeListener(`${this._namespace}:${id}`, tryAcquire);
+        clearTimeout(ttlTimer);
+        // Try one last time and return whatever the acquireLock returns
+        if (!acquiring) {
+          return tryAcquire();
+        }
+      }, waitTtl);
+    }
 
     // try to acquire a lock
     tryAcquire();
