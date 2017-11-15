@@ -18,6 +18,9 @@ var EventEmitter = require('events').EventEmitter;
 function Lock(options) {
   options = options || {};
   options.namespace = options.namespace || 'lock';
+  options.resourceCount = options.resourceCount || 1; // TODO: handle 0
+
+  this._resourceCount = options.resourceCount;
 
   this._namespace = options.namespace;
 
@@ -84,8 +87,15 @@ Object.assign(Lock.prototype, {
   acquireLock: function(id, ttl, done) {
     var acquireScript = `
         local ttl=tonumber(ARGV[1]);
+        local resourceCount=tonumber(ARGV[2])
         if redis.call("EXISTS", KEYS[1]) == 1 then
-          return {0, -1, redis.call("PTTL", KEYS[1])};
+          local currentResourceCount = tonumber(redis.call("HGET", KEYS[1], "resourceCount"));
+          if currentResourceCount <= 0 then
+            return {0, -1, redis.call("PTTL", KEYS[1])};
+          end;
+          redis.call("HINCRBY", KEYS[1], "resourceCount", -1);
+        else
+           redis.call("HMSET", KEYS[1], "resourceCount", resourceCount-1); 
         end;
         --[[
           Use a global incrementing counter
@@ -103,7 +113,7 @@ Object.assign(Lock.prototype, {
     this._scripty.loadScript('acquireScript', acquireScript, (err, script) => {
       if (err) return done(err);
 
-      script.run(2, `${this._namespace}:${id}`, `${this._namespace}index`, ttl, (err, evalResponse) => {
+      script.run(2, `${this._namespace}:${id}`, `${this._namespace}index`, ttl, this._resourceCount, (err, evalResponse) => {
         if (err) return done(err);
 
         var response = {
@@ -135,6 +145,7 @@ Object.assign(Lock.prototype, {
    */
   releaseLock: function(lock, done) {
     var releaseScript = `
+        local limit = 2;
         local index = tonumber(ARGV[1]);
         if redis.call("EXISTS", KEYS[1]) == 0 then
           return {1, "expired", "expired", 0};
@@ -143,7 +154,12 @@ Object.assign(Lock.prototype, {
           ["index"]=tonumber(redis.call("HGET", KEYS[1], "index"))
         };
         if data.index == index then
-          redis.call("DEL", KEYS[1]);
+          
+          local currentResourceCount = redis.call("HINCRBY", KEYS[1], "resourceCount", 1);
+          if currentResourceCount >= limit then
+            redis.call("DEL", KEYS[1]);
+          end
+          
           -- Notify potential queue that this lock is now freed
           redis.call("PUBLISH", "${this._namespace}-release", KEYS[1]);
           return {1, "released", data.index};

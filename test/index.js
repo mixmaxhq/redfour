@@ -1,3 +1,4 @@
+/* eslint-disable indent */
 'use strict';
 
 var Lock = require('../src');
@@ -14,8 +15,9 @@ describe('lock', function() {
   var testLock;
 
   beforeEach((done) => {
-    redisServerInstance.open(function(err) {
-      if (err) throw err;
+    // redisServerInstance.open(function(err) {
+    //   console.log("handling err");
+    //   if (err) throw err;
 
       testLock = new Lock({
         redis: 'redis://localhost:6399',
@@ -23,7 +25,7 @@ describe('lock', function() {
       });
 
       done();
-    });
+    // });
   });
 
   it('should acquire and release a lock only with a valid index', function(done) {
@@ -135,4 +137,33 @@ describe('lock', function() {
       });
     }).to.throw(/must provide a redis/i);
   });
+
+  it.only('should support specifiying the number of resources that may be used simultaneously', function(done){
+      const semaphoreTestLock = new Lock({
+          redis: 'redis://localhost:6399',
+          namespace: 'testLock',
+          resourceCount: 2,
+      });
+      semaphoreTestLock.acquireLock(testKey, 60 * 1000 /* Lock expires after 60sec if not released */ , function(err, lock) {
+          // Up to 5 resources are allowed inside the code block at time
+          // expect(err).to.be.ok;
+          console.log(err);
+          expect(err).to.be.null;
+          expect(lock.success).to.be.true;
+          semaphoreTestLock.acquireLock(testKey, 60 * 1000 /* Lock expires after 60sec if not released */ , function(err, lock2) {
+              // Up to 5 resources are allowed inside the code block at time
+              console.log(err);
+              expect(err).to.be.null;
+              expect(lock2.success).to.be.true;
+
+              semaphoreTestLock.acquireLock(testKey, 60 * 1000 /* Lock expires after 60sec if not released */ , function(err, lock3) {
+                  // Up to 5 resources are allowed inside the code block at time
+                  expect(err).to.be.null;
+                  expect(lock3.success).to.be.false;
+                  done();
+              });
+          });
+      });
+  });
+
 });
