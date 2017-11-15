@@ -145,8 +145,8 @@ Object.assign(Lock.prototype, {
    */
   releaseLock: function(lock, done) {
     var releaseScript = `
-        local limit = 2;
         local index = tonumber(ARGV[1]);
+        local resourceLimit = tonumber(ARGV[2]);
         if redis.call("EXISTS", KEYS[1]) == 0 then
           return {1, "expired", "expired", 0};
         end;
@@ -156,7 +156,7 @@ Object.assign(Lock.prototype, {
         if data.index == index then
           
           local currentResourceCount = redis.call("HINCRBY", KEYS[1], "resourceCount", 1);
-          if currentResourceCount >= limit then
+          if currentResourceCount >= resourceLimit then
             redis.call("DEL", KEYS[1]);
           end
           
@@ -170,7 +170,7 @@ Object.assign(Lock.prototype, {
     this._scripty.loadScript('releaseScript', releaseScript, (err, script) => {
       if (err) return done(err);
 
-      script.run(1, `${this._namespace}:${lock.id}`, lock.index, (err, evalResponse) => {
+      script.run(1, `${this._namespace}:${lock.id}`, lock.index, this._resourceCount, (err, evalResponse) => {
         if (err) return done(err);
 
         var response = {

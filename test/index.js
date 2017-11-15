@@ -147,12 +147,10 @@ describe('lock', function() {
       semaphoreTestLock.acquireLock(testKey, 60 * 1000 /* Lock expires after 60sec if not released */ , function(err, lock) {
           // Up to 5 resources are allowed inside the code block at time
           // expect(err).to.be.ok;
-          console.log(err);
           expect(err).to.be.null;
           expect(lock.success).to.be.true;
           semaphoreTestLock.acquireLock(testKey, 60 * 1000 /* Lock expires after 60sec if not released */ , function(err, lock2) {
               // Up to 5 resources are allowed inside the code block at time
-              console.log(err);
               expect(err).to.be.null;
               expect(lock2.success).to.be.true;
 
@@ -160,7 +158,19 @@ describe('lock', function() {
                   // Up to 5 resources are allowed inside the code block at time
                   expect(err).to.be.null;
                   expect(lock3.success).to.be.false;
-                  done();
+
+                  semaphoreTestLock.releaseLock(lock2, (err, release) => {
+                    console.log(err);
+                    expect(err).to.be.null;
+                      expect(release.success).to.equal(true);
+
+                      semaphoreTestLock.acquireLock(testKey, 60 * 1000 /* Lock expires after 60sec if not released */ , function(err, lock3) {
+                          // Up to 5 resources are allowed inside the code block at time
+                          expect(err).to.be.null;
+                          expect(lock3.success).to.be.true;
+                          done();
+                      });
+                  });
               });
           });
       });
