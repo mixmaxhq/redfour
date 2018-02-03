@@ -32,7 +32,7 @@ function Lock(options) {
   // has the `address` property, then we know it's an instantiated Redis
   // connection (as the constructor options do not provide for an address
   // option).
-  if (typeof options.redis === 'object' && options.redis.address) {
+  if (options.redis && options.redis.address) {
     this._redisConnection = options.redis;
 
     const redisAddress = this._redisConnection.address;
@@ -76,7 +76,7 @@ Object.assign(Lock.prototype, {
    * Lock index is a shared incrementing number (signed 64bit) that should ensure rogue
    * lock holders would not be able to mess with newer locks for the same resource.
    *
-   * @param {String} id Identifies the lock. This is an arbitrary string that should be consistent among 
+   * @param {String} id Identifies the lock. This is an arbitrary string that should be consistent among
    *    different processes trying to acquire this lock.
    * @param {Number} ttl Automatically release lock after TTL (ms). Must be positive integer
    * @param {Function} done Callback
@@ -177,7 +177,7 @@ Object.assign(Lock.prototype, {
    *     ttl: expiration time for the lock
    *   }
    *
-   * @param {String} id Identifies the lock. This is an arbitrary string that should be consistent among 
+   * @param {String} id Identifies the lock. This is an arbitrary string that should be consistent among
    *    different processes trying to acquire this lock.
    * @param {Number} ttl Automatically release acquired lock after TTL (ms). Must be positive integer
    * @param {Number} waitTtl Give up until ttl (in ms) or wait indefinitely if value is 0
