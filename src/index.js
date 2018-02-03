@@ -32,7 +32,7 @@ function Lock(options) {
   // has the `address` property, then we know it's an instantiated Redis
   // connection (as the constructor options do not provide for an address
   // option).
-  if (options.redis instanceof Object && options.redis.address) {
+  if (typeof options.redis === 'object' && options.redis.address) {
     this._redisConnection = options.redis;
 
     const redisAddress = this._redisConnection.address;
