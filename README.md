@@ -11,11 +11,13 @@ For example, say you have code that checks to see if an access token is expired,
 ## Install
 
 ```sh
-yarn add redfour
+npm install redfour
 ```
+
 or
+
 ```sh
-npm install redfour --save
+yarn add redfour
 ```
 
 ## Usage example
