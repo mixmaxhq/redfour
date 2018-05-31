@@ -1,0 +1,28 @@
+# Use Trusty for a C++11 compiler, for our native dependencies:
+# https://docs.travis-ci.com/user/languages/javascript-with-nodejs/#Node.js-v4-(or-io.js-v3)-compiler-requirements
+# But it's also the future of Travis anyway.
+dist: trusty
+# Containers for faster startup, also we don’t need sudo.
+sudo: false
+
+language: node_js
+
+node_js: 8.9.3
+
+cache:
+  directories:
+    # Location of npm cache per https://docs.npmjs.com/cli/cache#cache. Shared by npx per
+    # https://github.com/zkat/npx/tree/6e89dbd5989366e52d3810692b1ab5889a05fbad#description.
+    - $HOME/.npm
+
+install:
+  - npx npm@$NPM_VERSION ci
+
+# Don’t build pushes to branches other than our published branches. (This doesn’t affect PR
+# builds, which are separate from branch builds in Travis. If we didn’t have this config,
+# Travis would run both types of builds for PRs, consuming our concurrent builds. More info.)
+branches:
+  only:
+    - master
+
+script: npm run ci

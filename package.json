@@ -4,6 +4,7 @@
   "description": "A redis binary semaphore with async wait",
   "main": "src/index.js",
   "scripts": {
+    "ci": "npm run lint && npm test",
     "test": "mocha",
     "lint": "eslint ."
   },
@@ -29,7 +30,7 @@
     "eslint-config-mixmax": "^0.6.0",
     "mocha": "^3.0.2",
     "pre-commit": "^1.2.2",
-    "redis-server": "^0.0.3"
+    "redis-server": "^1.2.0"
   },
   "dependencies": {
     "node-redis-scripty": "^0.0.5",
@@ -37,5 +38,8 @@
   },
   "pre-commit": [
     "lint"
-  ]
+  ],
+  "engines": {
+    "yarn": "YARN NO LONGER USED - use npm instead."
+  }
 }
