@@ -103,7 +103,7 @@ Object.assign(Lock.prototype, {
     this._scripty.loadScript('acquireScript', acquireScript, (err, script) => {
       if (err) return done(err);
 
-      script.run(2, `${this._namespace}:${id}`, `${this._namespace}index`, ttl, (err, evalResponse) => {
+      script.run(2, `{${this._namespace}}:${id}`, `{${this._namespace}}index`, ttl, (err, evalResponse) => {
         if (err) return done(err);
 
         var response = {
@@ -154,7 +154,7 @@ Object.assign(Lock.prototype, {
     this._scripty.loadScript('releaseScript', releaseScript, (err, script) => {
       if (err) return done(err);
 
-      script.run(1, `${this._namespace}:${lock.id}`, lock.index, (err, evalResponse) => {
+      script.run(1, `{${this._namespace}}:${lock.id}`, lock.index, (err, evalResponse) => {
         if (err) return done(err);
 
         var response = {
