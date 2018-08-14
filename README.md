@@ -52,6 +52,8 @@ testLock.acquireLock(id, 60 * 1000 /* Lock expires after 60sec if not released *
 testLock.waitAcquireLock(id, 60 * 1000 /* Lock expires after 60sec */ , 10 * 1000 /* Wait for lock for up to 10sec */ , function(err, lock) {
   if (err) {
     console.log('error wait acquiring', err);
+  } else if (!lock.success) {
+    console.log('wait expired without acquiring lock');
   } else {
     console.log('lock acquired after wait!', lock);
   }
