@@ -1,9 +1,10 @@
 'use strict';
 
-var assert = require('assert');
-var redis = require('redis');
-var Scripty = require('node-redis-scripty');
-var EventEmitter = require('events').EventEmitter;
+const {asCallback, deferred} = require('promise-callbacks');
+const assert = require('assert');
+const redis = require('redis');
+const Scripty = require('node-redis-scripty');
+const {EventEmitter} = require('events');
 
 /**
  * Lock constructor.
@@ -15,56 +16,55 @@ var EventEmitter = require('events').EventEmitter;
  *   @property {String=} namespace - An optional namespace under which to prefix all Redis keys and
  *     channels used by this lock.
  */
-function Lock(options) {
-  options = options || {};
-  options.namespace = options.namespace || 'lock';
+class Lock {
+  constructor(options = {}) {
+    options.namespace = options.namespace || 'lock';
 
-  this._namespace = options.namespace;
+    this._namespace = options.namespace;
 
-  // Create Redis connection for issuing normal commands as well as one for
-  // the subscription, since a Redis connection with subscribers is not allowed
-  // to issue commands.
-  assert(options.redis, 'Must provide a Redis connection string, options object, or client instance.');
+    // Create Redis connection for issuing normal commands as well as one for
+    // the subscription, since a Redis connection with subscribers is not allowed
+    // to issue commands.
+    assert(options.redis, 'Must provide a Redis connection string, options object, or client instance.');
 
-  // Unfortunately, we cannot use `instanceof` to check redis connection
-  // objects (due to the module being loaded multiple times by different
-  // dependent modules). So instead, if the parameter is an object and it
-  // has the `address` property, then we know it's an instantiated Redis
-  // connection (as the constructor options do not provide for an address
-  // option).
-  if (options.redis && options.redis.address) {
-    this._redisConnection = options.redis;
+    // Unfortunately, we cannot use `instanceof` to check redis connection
+    // objects (due to the module being loaded multiple times by different
+    // dependent modules). So instead, if the parameter is an object and it
+    // has the `address` property, then we know it's an instantiated Redis
+    // connection (as the constructor options do not provide for an address
+    // option).
+    if (options.redis && options.redis.address) {
+      this._redisConnection = options.redis;
 
-    const redisAddress = this._redisConnection.address;
-    this._redisSubscriber = redis.createClient(`redis://${redisAddress}`);
-  } else {
-    // We assume `options.redis` is a connection string or options object.
-    this._redisConnection = redis.createClient(options.redis);
-    this._redisSubscriber = redis.createClient(options.redis);
-  }
-
-  // Handler to run LUA scripts. Uses caching if possible
-  this._scripty = new Scripty(this._redisConnection);
-
-  // Create event handler to register waiting locks
-  this._subscribers = new EventEmitter();
-  this._subscribers.setMaxListeners(Infinity);
-
-  // Whenever a lock is released it is published to the namespaced '-release' channel
-  // using the lock key as the message.
-  this._redisSubscriber.subscribe(`${this._namespace}-release`);
-  this._redisSubscriber.on('message', (channel, message) => {
-    if (channel !== `${this._namespace}-release` || !this._subscribers.listenerCount(message)) {
-      // just ignore, nothing to do here
-      return;
+      const redisAddress = this._redisConnection.address;
+      this._redisSubscriber = redis.createClient(`redis://${redisAddress}`);
+    } else {
+      // We assume `options.redis` is a connection string or options object.
+      this._redisConnection = redis.createClient(options.redis);
+      this._redisSubscriber = redis.createClient(options.redis);
     }
 
-    // Notify all waiting instances about the released lock
-    this._subscribers.emit(message);
-  });
-}
+    // Handler to run LUA scripts. Uses caching if possible
+    this._scripty = new Scripty(this._redisConnection);
 
-Object.assign(Lock.prototype, {
+    // Create event handler to register waiting locks
+    this._subscribers = new EventEmitter();
+    this._subscribers.setMaxListeners(Infinity);
+
+    // Whenever a lock is released it is published to the namespaced '-release' channel
+    // using the lock key as the message.
+    this._redisSubscriber.subscribe(`${this._namespace}-release`);
+    this._redisSubscriber.on('message', (channel, message) => {
+      if (channel !== `${this._namespace}-release` || !this._subscribers.listenerCount(message)) {
+        // just ignore, nothing to do here
+        return;
+      }
+
+      // Notify all waiting instances about the released lock
+      this._subscribers.emit(message);
+    });
+  }
+
   /**
    * Acquire a lock for a specific ID value. Callback returns the following value:
    *
@@ -79,10 +79,11 @@ Object.assign(Lock.prototype, {
    * @param {String} id Identifies the lock. This is an arbitrary string that should be consistent among
    *    different processes trying to acquire this lock.
    * @param {Number} ttl Automatically release lock after TTL (ms). Must be positive integer
-   * @param {Function} done Callback
+   *
+   * @return {Promise<Lock>}
    */
-  acquireLock: function(id, ttl, done) {
-    var acquireScript = `
+  async acquireLock(id, ttl) {
+    const acquireScript = `
         local ttl=tonumber(ARGV[1]);
         if redis.call("EXISTS", KEYS[1]) == 1 then
           return {0, -1, redis.call("PTTL", KEYS[1])};
@@ -100,22 +101,21 @@ Object.assign(Lock.prototype, {
         return {1, index, ttl};
       `;
 
-    this._scripty.loadScript('acquireScript', acquireScript, (err, script) => {
-      if (err) return done(err);
+    const scriptPromise = deferred();
+    this._scripty.loadScript('acquireScript', acquireScript, scriptPromise.defer());
+    const script = await scriptPromise;
 
-      script.run(2, `${this._namespace}:${id}`, `${this._namespace}index`, ttl, (err, evalResponse) => {
-        if (err) return done(err);
+    const runPromise = deferred();
+    script.run(2, `${this._namespace}:${id}`, `${this._namespace}index`, ttl, runPromise.defer());
+    const evalResponse = await runPromise;
 
-        var response = {
-          id: id,
-          success: !!evalResponse[0],
-          index: evalResponse[1],
-          ttl: evalResponse[2]
-        };
-        done(null, response);
-      });
-    });
-  },
+    return {
+      id: id,
+      success: !!evalResponse[0],
+      index: evalResponse[1],
+      ttl: evalResponse[2]
+    };
+  }
 
   /**
    * Releases a lock. Operation only succeeds if a correct modification index is provided.
@@ -131,10 +131,11 @@ Object.assign(Lock.prototype, {
    *   }
    *
    * @param {Object} lock A lock returned by acquireLock or waitAcquireLock
-   * @param {Function} done Callback
+   *
+   * @return {Promise<Lock>}
    */
-  releaseLock: function(lock, done) {
-    var releaseScript = `
+  async releaseLock(lock) {
+    const releaseScript = `
         local index = tonumber(ARGV[1]);
         if redis.call("EXISTS", KEYS[1]) == 0 then
           return {1, "expired", "expired", 0};
@@ -151,22 +152,21 @@ Object.assign(Lock.prototype, {
         return {0, "conflict", data.index};
       `;
 
-    this._scripty.loadScript('releaseScript', releaseScript, (err, script) => {
-      if (err) return done(err);
+    const scriptPromise = deferred();
+    this._scripty.loadScript('releaseScript', releaseScript, scriptPromise.defer());
+    const script = await scriptPromise;
 
-      script.run(1, `${this._namespace}:${lock.id}`, lock.index, (err, evalResponse) => {
-        if (err) return done(err);
+    const runPromise = deferred();
+    script.run(1, `${this._namespace}:${lock.id}`, lock.index, runPromise.defer());
+    const evalResponse = await runPromise;
 
-        var response = {
-          id: lock.id,
-          success: !!evalResponse[0],
-          result: evalResponse[1],
-          index: evalResponse[2]
-        };
-        done(null, response);
-      });
-    });
-  },
+    return {
+      id: lock.id,
+      success: !!evalResponse[0],
+      result: evalResponse[1],
+      index: evalResponse[2]
+    };
+  }
 
   /**
    * Acquire a lock for a specific ID value. If the lock is not available then waits
@@ -181,59 +181,62 @@ Object.assign(Lock.prototype, {
    *    different processes trying to acquire this lock.
    * @param {Number} ttl Automatically release acquired lock after TTL (ms). Must be positive integer
    * @param {Number} waitTtl Give up until ttl (in ms) or wait indefinitely if value is 0
-   * @param {Function} done Callback
+   *
+   * @return {Promise<Lock>}
    */
-  waitAcquireLock: function(id, lockTtl, waitTtl, done) {
-    var expired = false; // flag to indicate that the TTL wait time was expired
-    var acquiring = false; // flag to indicate that a Redis query is in process
+  waitAcquireLock(id, lockTtl, waitTtl) {
+    let expired = false; // flag to indicate that the TTL wait time was expired
+    let acquiring = false; // flag to indicate that a Redis query is in process
 
-    var ttlTimer;
-    var expireLockTimer;
+    let ttlTimer;
+    let expireLockTimer;
 
-    // A looping function that tries to acquire a lock. The loop goes on until
-    // the lock is acquired or the wait ttl kicks in
-    var tryAcquire = () => {
-      this._subscribers.removeListener(`${this._namespace}:${id}`, tryAcquire); // clears pubsub listener
-      clearTimeout(ttlTimer); // clears the timer that waits until existing lock is expired
-      acquiring = true;
-      this.acquireLock(id, lockTtl, (err, lock) => {
-        acquiring = false;
-        if (err) {
-          // stop waiting if we hit into an error
-          clearTimeout(expireLockTimer);
-          return done(err);
-        }
-        if (lock.success || expired) {
-          // we got a lock or the wait TTL was expired, return what we have
-          clearTimeout(expireLockTimer);
-          return done(null, lock);
-        }
+    return new Promise((resolve, reject) => {
+      // A looping function that tries to acquire a lock. The loop goes on until
+      // the lock is acquired or the wait ttl kicks in
+      const tryAcquire = () => {
+        this._subscribers.removeListener(`${this._namespace}:${id}`, tryAcquire); // clears pubsub listener
+        clearTimeout(ttlTimer); // clears the timer that waits until existing lock is expired
+        acquiring = true;
+        asCallback(this.acquireLock(id, lockTtl), (err, lock) => {
+          acquiring = false;
+          if (err) {
+            // stop waiting if we hit into an error
+            clearTimeout(expireLockTimer);
+            return reject(err);
+          }
+          if (lock.success || expired) {
+            // we got a lock or the wait TTL was expired, return what we have
+            clearTimeout(expireLockTimer);
+            return resolve(lock);
+          }
 
-        // Wait for either a Redis publish event or for the lock expiration timer to expire
-        this._subscribers.addListener(`${this._namespace}:${id}`, tryAcquire);
-        // Remaining TTL for the lock might be very low, even 0 (lock expires by next ms)
-        // in any case we do not make a next polling try sooner than after 100ms delay
-        // We might make the call sooner if the key is released manually and we get a notification
-        // from Redis PubSub about it
-        ttlTimer = setTimeout(tryAcquire, Math.max(lock.ttl, 100));
-      });
-    };
+          // Wait for either a Redis publish event or for the lock expiration timer to expire
+          this._subscribers.addListener(`${this._namespace}:${id}`, tryAcquire);
+          // Remaining TTL for the lock might be very low, even 0 (lock expires by next ms)
+          // in any case we do not make a next polling try sooner than after 100ms delay
+          // We might make the call sooner if the key is released manually and we get a notification
+          // from Redis PubSub about it
+          ttlTimer = setTimeout(tryAcquire, Math.max(lock.ttl, 100));
+        });
+      };
 
-    if (waitTtl > 0) {
-      expireLockTimer = setTimeout(() => {
-        expired = true;
-        this._subscribers.removeListener(`${this._namespace}:${id}`, tryAcquire);
-        clearTimeout(ttlTimer);
-        // Try one last time and return whatever the acquireLock returns
-        if (!acquiring) {
-          return tryAcquire();
-        }
-      }, waitTtl);
-    }
+      if (waitTtl > 0) {
+        expireLockTimer = setTimeout(() => {
+          expired = true;
+          this._subscribers.removeListener(`${this._namespace}:${id}`, tryAcquire);
+          clearTimeout(ttlTimer);
+          // Try one last time and return whatever the acquireLock returns
+          if (!acquiring) {
+            return tryAcquire();
+          }
+        }, waitTtl);
+      }
 
-    // try to acquire a lock
-    tryAcquire();
+      // try to acquire a lock
+      tryAcquire();
+    });
   }
-});
+}
 
 module.exports = Lock;

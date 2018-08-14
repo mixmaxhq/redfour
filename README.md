@@ -23,9 +23,9 @@ yarn add redfour
 ## Usage example
 
 ```js
-var Lock = require('redfour');
+const Lock = require('redfour');
 
-var testLock = new Lock({
+const testLock = new Lock({
   // Can also be an `Object` of options to pass to `redis.createClient`
   // https://github.com/NodeRedis/node_redis#rediscreateclient, or an existing
   // instance of `RedisClient` (if you want to reuse one connection, though this
@@ -33,40 +33,54 @@ var testLock = new Lock({
   redis: 'redis://localhost:6381',
   namespace: 'mylock'
 });
-var id = Math.random();
-var firstlock;
+const id = Math.random();
 
 // First, acquire the lock.
-testLock.acquireLock(id, 60 * 1000 /* Lock expires after 60sec if not released */ , function(err, lock) {
-  if (err) {
-    console.log('error acquiring', err);
-  } else if (!lock.success) {
-    console.log('lock exists', lock);
+let firstLock;
+try {
+  firstLock = await testLock.acquireLock(id, 60 * 1000 /* Lock expires after 60sec if not released */);
+  if (!firstLock.success) {
+    console.log('lock exists', firstLock);
   } else {
     console.log('lock acquired initially');
-    firstlock = lock;
   }
-});
+} catch (err) {
+  console.log('error acquiring', err);
+}
 
-// Another server might be waiting for the lock like this.
-testLock.waitAcquireLock(id, 60 * 1000 /* Lock expires after 60sec */ , 10 * 1000 /* Wait for lock for up to 10sec */ , function(err, lock) {
-  if (err) {
+// Another server might be waiting for the lock like this. (This example is in a `setTimeout` so that
+// we can test this using a single process, though.)
+setTimeout(async () => {
+  let lock;
+  try {
+    lock = await testLock.waitAcquireLock(id, 60 * 1000 /* Lock expires after 60sec */ , 10 * 1000 /* Wait for lock for up to 10sec */);
+    if (!lock.success) {
+      console.log('wait expired without acquiring lock');
+    } else {
+      console.log('lock acquired after wait!', lock);
+    }
+  } catch (err) {
     console.log('error wait acquiring', err);
-  } else {
-    console.log('lock acquired after wait!', lock);
   }
 });
 
 // When the original lock is released, `waitAcquireLock` is fired on the other server.
-setTimeout(() => {
-  testLock.releaseLock(firstlock, (err) => {
-    if (err) {
-      console.log('error releasing', err);
-    } else {
-      console.log('released lock');
-    }
-  });
+setTimeout(async () => {
+  try {
+    await testLock.releaseLock(firstLock);
+    console.log('released lock (after several seconds)');
+  } catch (err) {
+    console.log('error releasing', err);
+  }
 }, 3 * 1000);
+```
+
+Barring errors, the above example will print something like
+
+```
+lock acquired initially { id: 0.7904874225813969, success: true, index: 3, ttl: 60000 }
+released lock (after several seconds)
+lock acquired after wait! { id: 0.7904874225813969, success: true, index: 4, ttl: 60000 }
 ```
 
 ## Contributing
