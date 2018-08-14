@@ -1,5 +1,6 @@
 'use strict';
 
+const {asCallback, deferred} = require('promise-callbacks');
 const assert = require('assert');
 const redis = require('redis');
 const Scripty = require('node-redis-scripty');
@@ -79,9 +80,10 @@ Object.assign(Lock.prototype, {
    * @param {String} id Identifies the lock. This is an arbitrary string that should be consistent among
    *    different processes trying to acquire this lock.
    * @param {Number} ttl Automatically release lock after TTL (ms). Must be positive integer
-   * @param {Function} done Callback
+   *
+   * @return {Promise<Error, Lock>}
    */
-  acquireLock(id, ttl, done) {
+  async acquireLock(id, ttl) {
     const acquireScript = `
         local ttl=tonumber(ARGV[1]);
         if redis.call("EXISTS", KEYS[1]) == 1 then
@@ -100,21 +102,20 @@ Object.assign(Lock.prototype, {
         return {1, index, ttl};
       `;
 
-    this._scripty.loadScript('acquireScript', acquireScript, (err, script) => {
-      if (err) return done(err);
+    const scriptPromise = deferred();
+    this._scripty.loadScript('acquireScript', acquireScript, scriptPromise.defer());
+    const script = await scriptPromise;
 
-      script.run(2, `${this._namespace}:${id}`, `${this._namespace}index`, ttl, (err, evalResponse) => {
-        if (err) return done(err);
+    const runPromise = deferred();
+    script.run(2, `${this._namespace}:${id}`, `${this._namespace}index`, ttl, runPromise.defer());
+    const evalResponse = await runPromise;
 
-        const response = {
-          id: id,
-          success: !!evalResponse[0],
-          index: evalResponse[1],
-          ttl: evalResponse[2]
-        };
-        done(null, response);
-      });
-    });
+    return {
+      id: id,
+      success: !!evalResponse[0],
+      index: evalResponse[1],
+      ttl: evalResponse[2]
+    };
   },
 
   /**
@@ -131,9 +132,10 @@ Object.assign(Lock.prototype, {
    *   }
    *
    * @param {Object} lock A lock returned by acquireLock or waitAcquireLock
-   * @param {Function} done Callback
+   *
+   * @return {Promise<Error, Lock>}
    */
-  releaseLock(lock, done) {
+  async releaseLock(lock) {
     const releaseScript = `
         local index = tonumber(ARGV[1]);
         if redis.call("EXISTS", KEYS[1]) == 0 then
@@ -151,21 +153,20 @@ Object.assign(Lock.prototype, {
         return {0, "conflict", data.index};
       `;
 
-    this._scripty.loadScript('releaseScript', releaseScript, (err, script) => {
-      if (err) return done(err);
+    const scriptPromise = deferred();
+    this._scripty.loadScript('releaseScript', releaseScript, scriptPromise.defer());
+    const script = await scriptPromise;
 
-      script.run(1, `${this._namespace}:${lock.id}`, lock.index, (err, evalResponse) => {
-        if (err) return done(err);
+    const runPromise = deferred();
+    script.run(1, `${this._namespace}:${lock.id}`, lock.index, runPromise.defer());
+    const evalResponse = await runPromise;
 
-        const response = {
-          id: lock.id,
-          success: !!evalResponse[0],
-          result: evalResponse[1],
-          index: evalResponse[2]
-        };
-        done(null, response);
-      });
-    });
+    return {
+      id: lock.id,
+      success: !!evalResponse[0],
+      result: evalResponse[1],
+      index: evalResponse[2]
+    };
   },
 
   /**
@@ -181,58 +182,61 @@ Object.assign(Lock.prototype, {
    *    different processes trying to acquire this lock.
    * @param {Number} ttl Automatically release acquired lock after TTL (ms). Must be positive integer
    * @param {Number} waitTtl Give up until ttl (in ms) or wait indefinitely if value is 0
-   * @param {Function} done Callback
+   *
+   * @return {Promise<Error, Lock>}
    */
-  waitAcquireLock(id, lockTtl, waitTtl, done) {
+  waitAcquireLock(id, lockTtl, waitTtl) {
     let expired = false; // flag to indicate that the TTL wait time was expired
     let acquiring = false; // flag to indicate that a Redis query is in process
 
     let ttlTimer;
     let expireLockTimer;
 
-    // A looping function that tries to acquire a lock. The loop goes on until
-    // the lock is acquired or the wait ttl kicks in
-    const tryAcquire = () => {
-      this._subscribers.removeListener(`${this._namespace}:${id}`, tryAcquire); // clears pubsub listener
-      clearTimeout(ttlTimer); // clears the timer that waits until existing lock is expired
-      acquiring = true;
-      this.acquireLock(id, lockTtl, (err, lock) => {
-        acquiring = false;
-        if (err) {
-          // stop waiting if we hit into an error
-          clearTimeout(expireLockTimer);
-          return done(err);
-        }
-        if (lock.success || expired) {
-          // we got a lock or the wait TTL was expired, return what we have
-          clearTimeout(expireLockTimer);
-          return done(null, lock);
-        }
+    return new Promise((resolve, reject) => {
+      // A looping function that tries to acquire a lock. The loop goes on until
+      // the lock is acquired or the wait ttl kicks in
+      const tryAcquire = () => {
+        this._subscribers.removeListener(`${this._namespace}:${id}`, tryAcquire); // clears pubsub listener
+        clearTimeout(ttlTimer); // clears the timer that waits until existing lock is expired
+        acquiring = true;
+        asCallback(this.acquireLock(id, lockTtl), (err, lock) => {
+          acquiring = false;
+          if (err) {
+            // stop waiting if we hit into an error
+            clearTimeout(expireLockTimer);
+            return reject(err);
+          }
+          if (lock.success || expired) {
+            // we got a lock or the wait TTL was expired, return what we have
+            clearTimeout(expireLockTimer);
+            return resolve(lock);
+          }
 
-        // Wait for either a Redis publish event or for the lock expiration timer to expire
-        this._subscribers.addListener(`${this._namespace}:${id}`, tryAcquire);
-        // Remaining TTL for the lock might be very low, even 0 (lock expires by next ms)
-        // in any case we do not make a next polling try sooner than after 100ms delay
-        // We might make the call sooner if the key is released manually and we get a notification
-        // from Redis PubSub about it
-        ttlTimer = setTimeout(tryAcquire, Math.max(lock.ttl, 100));
-      });
-    };
+          // Wait for either a Redis publish event or for the lock expiration timer to expire
+          this._subscribers.addListener(`${this._namespace}:${id}`, tryAcquire);
+          // Remaining TTL for the lock might be very low, even 0 (lock expires by next ms)
+          // in any case we do not make a next polling try sooner than after 100ms delay
+          // We might make the call sooner if the key is released manually and we get a notification
+          // from Redis PubSub about it
+          ttlTimer = setTimeout(tryAcquire, Math.max(lock.ttl, 100));
+        });
+      };
 
-    if (waitTtl > 0) {
-      expireLockTimer = setTimeout(() => {
-        expired = true;
-        this._subscribers.removeListener(`${this._namespace}:${id}`, tryAcquire);
-        clearTimeout(ttlTimer);
-        // Try one last time and return whatever the acquireLock returns
-        if (!acquiring) {
-          return tryAcquire();
-        }
-      }, waitTtl);
-    }
+      if (waitTtl > 0) {
+        expireLockTimer = setTimeout(() => {
+          expired = true;
+          this._subscribers.removeListener(`${this._namespace}:${id}`, tryAcquire);
+          clearTimeout(ttlTimer);
+          // Try one last time and return whatever the acquireLock returns
+          if (!acquiring) {
+            return tryAcquire();
+          }
+        }, waitTtl);
+      }
 
-    // try to acquire a lock
-    tryAcquire();
+      // try to acquire a lock
+      tryAcquire();
+    });
   }
 });
 
