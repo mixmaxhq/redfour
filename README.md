@@ -75,4 +75,4 @@ We welcome pull requests! Please lint your code.
 
 ## Etymology
 
-Shortened (and easier to pronouce) version of "Redis Semaphore"
+Shortened (and easier to pronounce) version of "Redis Semaphore"
