@@ -80,7 +80,7 @@ class Lock {
    *    different processes trying to acquire this lock.
    * @param {Number} ttl Automatically release lock after TTL (ms). Must be positive integer
    *
-   * @return {Promise<Error, Lock>}
+   * @return {Promise<Lock>}
    */
   async acquireLock(id, ttl) {
     const acquireScript = `
@@ -132,7 +132,7 @@ class Lock {
    *
    * @param {Object} lock A lock returned by acquireLock or waitAcquireLock
    *
-   * @return {Promise<Error, Lock>}
+   * @return {Promise<Lock>}
    */
   async releaseLock(lock) {
     const releaseScript = `
@@ -182,7 +182,7 @@ class Lock {
    * @param {Number} ttl Automatically release acquired lock after TTL (ms). Must be positive integer
    * @param {Number} waitTtl Give up until ttl (in ms) or wait indefinitely if value is 0
    *
-   * @return {Promise<Error, Lock>}
+   * @return {Promise<Lock>}
    */
   waitAcquireLock(id, lockTtl, waitTtl) {
     let expired = false; // flag to indicate that the TTL wait time was expired
