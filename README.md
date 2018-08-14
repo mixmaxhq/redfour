@@ -73,12 +73,6 @@ setTimeout(() => {
 
 We welcome pull requests! Please lint your code.
 
-## Release History
-* 1.0.2 Don't use `instanceof` to determine if the `redis` constructor option is of
-        type `redis.RedisClient`.
-* 1.0.1 Fix issue where you could only pass in a Redis connection URI.
-* 1.0.0 Initial release.
-
 ## Etymology
 
-Shortened (and easier to pronouce) version of "Redis Semaphore"
+Shortened (and easier to pronounce) version of "Redis Semaphore"

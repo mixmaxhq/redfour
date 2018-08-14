@@ -29,14 +29,10 @@
     "eslint": ">=3",
     "eslint-config-mixmax": "^0.6.0",
     "mocha": "^3.0.2",
-    "pre-commit": "^1.2.2",
     "redis-server": "^1.2.0"
   },
   "dependencies": {
     "node-redis-scripty": "^0.0.5",
     "redis": "^2.6.2"
-  },
-  "pre-commit": [
-    "lint"
-  ]
+  }
 }
