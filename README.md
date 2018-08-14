@@ -23,9 +23,9 @@ yarn add redfour
 ## Usage example
 
 ```js
-var Lock = require('redfour');
+const Lock = require('redfour');
 
-var testLock = new Lock({
+const testLock = new Lock({
   // Can also be an `Object` of options to pass to `redis.createClient`
   // https://github.com/NodeRedis/node_redis#rediscreateclient, or an existing
   // instance of `RedisClient` (if you want to reuse one connection, though this
@@ -33,8 +33,8 @@ var testLock = new Lock({
   redis: 'redis://localhost:6381',
   namespace: 'mylock'
 });
-var id = Math.random();
-var firstlock;
+const id = Math.random();
+const firstlock;
 
 // First, acquire the lock.
 testLock.acquireLock(id, 60 * 1000 /* Lock expires after 60sec if not released */ , function(err, lock) {
