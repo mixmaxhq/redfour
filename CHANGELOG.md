@@ -1,5 +1,7 @@
 ## Release History
 
+* 2.0.0 Promisify
+
 * 1.0.5 Still allow yarn for install
 
 * 1.0.4 deyarn
