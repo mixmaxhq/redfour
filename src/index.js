@@ -4,7 +4,7 @@ const {asCallback, deferred} = require('promise-callbacks');
 const assert = require('assert');
 const redis = require('redis');
 const Scripty = require('node-redis-scripty');
-const EventEmitter = require('events').EventEmitter;
+const {EventEmitter} = require('events');
 
 /**
  * Lock constructor.
@@ -16,56 +16,55 @@ const EventEmitter = require('events').EventEmitter;
  *   @property {String=} namespace - An optional namespace under which to prefix all Redis keys and
  *     channels used by this lock.
  */
-function Lock(options) {
-  options = options || {};
-  options.namespace = options.namespace || 'lock';
+class Lock {
+  constructor(options = {}) {
+    options.namespace = options.namespace || 'lock';
 
-  this._namespace = options.namespace;
+    this._namespace = options.namespace;
 
-  // Create Redis connection for issuing normal commands as well as one for
-  // the subscription, since a Redis connection with subscribers is not allowed
-  // to issue commands.
-  assert(options.redis, 'Must provide a Redis connection string, options object, or client instance.');
+    // Create Redis connection for issuing normal commands as well as one for
+    // the subscription, since a Redis connection with subscribers is not allowed
+    // to issue commands.
+    assert(options.redis, 'Must provide a Redis connection string, options object, or client instance.');
 
-  // Unfortunately, we cannot use `instanceof` to check redis connection
-  // objects (due to the module being loaded multiple times by different
-  // dependent modules). So instead, if the parameter is an object and it
-  // has the `address` property, then we know it's an instantiated Redis
-  // connection (as the constructor options do not provide for an address
-  // option).
-  if (options.redis && options.redis.address) {
-    this._redisConnection = options.redis;
+    // Unfortunately, we cannot use `instanceof` to check redis connection
+    // objects (due to the module being loaded multiple times by different
+    // dependent modules). So instead, if the parameter is an object and it
+    // has the `address` property, then we know it's an instantiated Redis
+    // connection (as the constructor options do not provide for an address
+    // option).
+    if (options.redis && options.redis.address) {
+      this._redisConnection = options.redis;
 
-    const redisAddress = this._redisConnection.address;
-    this._redisSubscriber = redis.createClient(`redis://${redisAddress}`);
-  } else {
-    // We assume `options.redis` is a connection string or options object.
-    this._redisConnection = redis.createClient(options.redis);
-    this._redisSubscriber = redis.createClient(options.redis);
-  }
-
-  // Handler to run LUA scripts. Uses caching if possible
-  this._scripty = new Scripty(this._redisConnection);
-
-  // Create event handler to register waiting locks
-  this._subscribers = new EventEmitter();
-  this._subscribers.setMaxListeners(Infinity);
-
-  // Whenever a lock is released it is published to the namespaced '-release' channel
-  // using the lock key as the message.
-  this._redisSubscriber.subscribe(`${this._namespace}-release`);
-  this._redisSubscriber.on('message', (channel, message) => {
-    if (channel !== `${this._namespace}-release` || !this._subscribers.listenerCount(message)) {
-      // just ignore, nothing to do here
-      return;
+      const redisAddress = this._redisConnection.address;
+      this._redisSubscriber = redis.createClient(`redis://${redisAddress}`);
+    } else {
+      // We assume `options.redis` is a connection string or options object.
+      this._redisConnection = redis.createClient(options.redis);
+      this._redisSubscriber = redis.createClient(options.redis);
     }
 
-    // Notify all waiting instances about the released lock
-    this._subscribers.emit(message);
-  });
-}
+    // Handler to run LUA scripts. Uses caching if possible
+    this._scripty = new Scripty(this._redisConnection);
 
-Object.assign(Lock.prototype, {
+    // Create event handler to register waiting locks
+    this._subscribers = new EventEmitter();
+    this._subscribers.setMaxListeners(Infinity);
+
+    // Whenever a lock is released it is published to the namespaced '-release' channel
+    // using the lock key as the message.
+    this._redisSubscriber.subscribe(`${this._namespace}-release`);
+    this._redisSubscriber.on('message', (channel, message) => {
+      if (channel !== `${this._namespace}-release` || !this._subscribers.listenerCount(message)) {
+        // just ignore, nothing to do here
+        return;
+      }
+
+      // Notify all waiting instances about the released lock
+      this._subscribers.emit(message);
+    });
+  }
+
   /**
    * Acquire a lock for a specific ID value. Callback returns the following value:
    *
@@ -116,7 +115,7 @@ Object.assign(Lock.prototype, {
       index: evalResponse[1],
       ttl: evalResponse[2]
     };
-  },
+  }
 
   /**
    * Releases a lock. Operation only succeeds if a correct modification index is provided.
@@ -167,7 +166,7 @@ Object.assign(Lock.prototype, {
       result: evalResponse[1],
       index: evalResponse[2]
     };
-  },
+  }
 
   /**
    * Acquire a lock for a specific ID value. If the lock is not available then waits
@@ -238,6 +237,6 @@ Object.assign(Lock.prototype, {
       tryAcquire();
     });
   }
-});
+}
 
 module.exports = Lock;
