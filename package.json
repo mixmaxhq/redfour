@@ -6,6 +6,9 @@
     "node": ">=7.6.0"
   },
   "main": "src/index.js",
+  "files": [
+    "src"
+  ],
   "scripts": {
     "ci": "npm run lint && npm test",
     "test": "mocha",
