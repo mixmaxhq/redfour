@@ -19,7 +19,7 @@ describe('lock', function() {
 
       testLock = new Lock({
         redis: 'redis://localhost:6399',
-        namespace: 'testLock'
+        namespace: 'testLock',
       });
 
       done();
@@ -39,7 +39,7 @@ describe('lock', function() {
 
     const invalidRelease = await testLock.releaseLock({
       id: testKey,
-      index: -10
+      index: -10,
     });
     expect(invalidRelease.success).to.equal(false);
 
@@ -81,7 +81,7 @@ describe('lock', function() {
     const client = redis.createClient('redis://localhost:6399');
     const testExistingLock = new Lock({
       redis: client,
-      namespace: 'testExistingLock'
+      namespace: 'testExistingLock',
     });
 
     const initialLock = await testExistingLock.acquireLock(testKey, 1 * 60 * 1000);
@@ -104,7 +104,7 @@ describe('lock', function() {
   it('should throw if redis is not provided', function() {
     expect(function() {
       new Lock({
-        namespace: 'testExistingLock'
+        namespace: 'testExistingLock',
       });
     }).to.throw(/must provide a redis/i);
   });

@@ -1,10 +1,10 @@
 'use strict';
 
-const {asCallback, deferred} = require('promise-callbacks');
+const { asCallback, deferred } = require('promise-callbacks');
 const assert = require('assert');
 const redis = require('redis');
 const Scripty = require('node-redis-scripty');
-const {EventEmitter} = require('events');
+const { EventEmitter } = require('events');
 
 /**
  * Lock constructor.
@@ -25,7 +25,10 @@ class Lock {
     // Create Redis connection for issuing normal commands as well as one for
     // the subscription, since a Redis connection with subscribers is not allowed
     // to issue commands.
-    assert(options.redis, 'Must provide a Redis connection string, options object, or client instance.');
+    assert(
+      options.redis,
+      'Must provide a Redis connection string, options object, or client instance.'
+    );
 
     // Unfortunately, we cannot use `instanceof` to check redis connection
     // objects (due to the module being loaded multiple times by different
@@ -110,10 +113,10 @@ class Lock {
     const evalResponse = await runPromise;
 
     return {
-      id: id,
+      id,
       success: !!evalResponse[0],
       index: evalResponse[1],
-      ttl: evalResponse[2]
+      ttl: evalResponse[2],
     };
   }
 
@@ -164,7 +167,7 @@ class Lock {
       id: lock.id,
       success: !!evalResponse[0],
       result: evalResponse[1],
-      index: evalResponse[2]
+      index: evalResponse[2],
     };
   }
 

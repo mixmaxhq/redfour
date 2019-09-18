@@ -28,10 +28,14 @@
   },
   "homepage": "https://github.com/mixmaxhq/redfour#readme",
   "devDependencies": {
+    "@mixmaxhq/prettier-config": "^1.0.0",
     "chai": "^3.5.0",
-    "eslint": ">=3",
-    "eslint-config-mixmax": "^0.6.0",
+    "eslint": "^6.4.0",
+    "eslint-config-mixmax": "^2.1.0",
+    "eslint-config-prettier": "^6.3.0",
+    "eslint-plugin-prettier": "^3.1.1",
     "mocha": "^3.0.2",
+    "prettier": "^1.18.2",
     "redis-server": "^1.2.0"
   },
   "dependencies": {
