@@ -232,7 +232,7 @@ class Lock {
           clearTimeout(ttlTimer);
           // Try one last time and return whatever the acquireLock returns
           if (!acquiring) {
-            return tryAcquire();
+            tryAcquire();
           }
         }, waitTtl);
       }
