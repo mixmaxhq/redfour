@@ -78,6 +78,14 @@ describe('lock', function() {
     await testLock.releaseLock(initialLock);
   });
 
+  it('should acquire the lock immediately with waitAcquireLock', async function() {
+    const initialLock = await testLock.waitAcquireLock(testKey, 1 * 60 * 1000, 1500);
+    expect(initialLock.success).to.equal(true);
+    expect(initialLock.immediate).to.equal(true);
+
+    await testLock.releaseLock(initialLock);
+  });
+
   it('should be able to be constructed from a pre-existing connection', async function() {
     const client = redis.createClient('redis://localhost:6399');
     const testExistingLock = new Lock({
