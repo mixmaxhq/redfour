@@ -1,5 +1,7 @@
 ## Release History
 
+* 2.1.0 Add lock immediate-acquisition indicator
+
 * 2.0.0 Promisify
 
 * 1.0.5 Still allow yarn for install
