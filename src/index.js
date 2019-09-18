@@ -197,7 +197,7 @@ class Lock {
     return new Promise((resolve, reject) => {
       // A looping function that tries to acquire a lock. The loop goes on until
       // the lock is acquired or the wait ttl kicks in
-      const tryAcquire = () => {
+      const tryAcquire = (initial = false) => {
         this._subscribers.removeListener(`${this._namespace}:${id}`, tryAcquire); // clears pubsub listener
         clearTimeout(ttlTimer); // clears the timer that waits until existing lock is expired
         acquiring = true;
@@ -211,6 +211,7 @@ class Lock {
           if (lock.success || expired) {
             // we got a lock or the wait TTL was expired, return what we have
             clearTimeout(expireLockTimer);
+            lock.immediate = initial;
             return resolve(lock);
           }
 
@@ -231,13 +232,13 @@ class Lock {
           clearTimeout(ttlTimer);
           // Try one last time and return whatever the acquireLock returns
           if (!acquiring) {
-            return tryAcquire();
+            tryAcquire();
           }
         }, waitTtl);
       }
 
       // try to acquire a lock
-      tryAcquire();
+      tryAcquire(true);
     });
   }
 }
