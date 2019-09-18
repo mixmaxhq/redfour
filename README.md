@@ -57,6 +57,8 @@ setTimeout(async () => {
     if (!lock.success) {
       console.log('wait expired without acquiring lock');
     } else {
+      // The lock.immediate boolean will be false in this case, but if waitAcquireLock managed to
+      // acquire the lock immediately, the boolean would be true.
       console.log('lock acquired after wait!', lock);
     }
   } catch (err) {
