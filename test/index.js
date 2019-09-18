@@ -60,12 +60,13 @@ describe('lock', function() {
     const start = Date.now();
     const newLock = await testLock.waitAcquireLock(testKey, 60 * 100, 3000);
     expect(newLock.success).to.equal(true);
+    expect(newLock.immediate).to.equal(false);
     expect(Date.now() - start).to.be.above(1450);
 
     await testLock.releaseLock(newLock);
   });
 
-  it('Should wait and not acquire a lock', async function() {
+  it('should wait and not acquire a lock', async function() {
     const initialLock = await testLock.acquireLock(testKey, 1 * 60 * 1000);
     expect(initialLock.success).to.equal(true);
 
@@ -77,7 +78,7 @@ describe('lock', function() {
     await testLock.releaseLock(initialLock);
   });
 
-  it('Should be able to be constructed from a pre-existing connection', async function() {
+  it('should be able to be constructed from a pre-existing connection', async function() {
     const client = redis.createClient('redis://localhost:6399');
     const testExistingLock = new Lock({
       redis: client,
@@ -96,6 +97,7 @@ describe('lock', function() {
     const start = Date.now();
     const newLock = await testExistingLock.waitAcquireLock(testKey, 60 * 100, 3000);
     expect(newLock.success).to.equal(true);
+    expect(newLock.immediate).to.equal(false);
     expect(Date.now() - start).to.be.above(1450);
 
     await testExistingLock.releaseLock(newLock);
