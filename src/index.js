@@ -1,10 +1,11 @@
 'use strict';
 
-const { asCallback, deferred } = require('promise-callbacks');
 const assert = require('assert');
-const redis = require('redis');
-const Scripty = require('node-redis-scripty');
 const { EventEmitter } = require('events');
+
+const Scripty = require('node-redis-scripty');
+const { asCallback, deferred } = require('promise-callbacks');
+const redis = require('redis');
 
 /**
  * Lock constructor.

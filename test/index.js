@@ -1,6 +1,7 @@
 'use strict';
 
 const Lock = require('../src');
+
 const expect = require('chai').expect;
 const redis = require('redis');
 const RedisServer = require('redis-server');
