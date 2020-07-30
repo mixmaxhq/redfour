@@ -11,7 +11,7 @@
   ],
   "scripts": {
     "ci": "npm run lint && npm test",
-    "test": "mocha",
+    "test": "jest",
     "lint": "eslint ."
   },
   "repository": {
@@ -32,12 +32,11 @@
   "homepage": "https://github.com/mixmaxhq/redfour#readme",
   "devDependencies": {
     "@mixmaxhq/prettier-config": "^1.0.0",
-    "chai": "^3.5.0",
     "eslint": "^7.5.0",
     "eslint-config-mixmax": "^4.11.1",
     "eslint-config-prettier": "^6.3.0",
     "eslint-plugin-prettier": "^3.1.1",
-    "mocha": "^3.0.2",
+    "jest": "^26.2.1",
     "prettier": "^1.18.2",
     "redis-server": "^1.2.0"
   },
