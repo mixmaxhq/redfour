@@ -1,5 +1,6 @@
 'use strict';
 
+const { waitOn } = require('promise-callbacks');
 const redis = require('redis');
 const RedisServer = require('redis-server');
 
@@ -24,6 +25,8 @@ describe('lock', function() {
       namespace: 'testLock',
     });
   });
+
+  afterEach(() => testLock.close());
 
   it('should acquire and release a lock only with a valid index', async () => {
     const lock = await testLock.acquireLock(testKey, 60 * 100);
@@ -108,6 +111,19 @@ describe('lock', function() {
     expect(Date.now() - start).toBeGreaterThan(1450);
 
     await testExistingLock.releaseLock(newLock);
+  });
+
+  it('should close the connections', async () => {
+    await waitOn(testLock._redisConnection, 'ready', true);
+
+    // Should wait a total of at least 300ms, as it should wait for both operations to complete (and
+    // one with wait for the other).
+    const start = process.hrtime.bigint();
+    testLock.waitAcquireLock(testKey, 300, 1000);
+    testLock.waitAcquireLock(testKey, 300, 1000);
+
+    await testLock.close();
+    expect(process.hrtime.bigint() - start).toBeGreaterThan(3e8);
   });
 
   it('should throw if redis is not provided', () => {
