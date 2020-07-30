@@ -1,7 +1,3 @@
 {
-  "extends": ["mixmax/node", "prettier"],
-  "plugins": ["prettier"],
-  "rules": {
-    "prettier/prettier": "error"
-  }
+  "extends": ["mixmax/node/withJest"]
 }
