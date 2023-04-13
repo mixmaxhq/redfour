@@ -111,6 +111,53 @@ describe('lock', function() {
     await testExistingLock.releaseLock(newLock);
   });
 
+  it('should renew and release a lock with a valid index', async () => {
+    const lock = await testLock.acquireLock(testKey, 60 * 100);
+
+    expect(lock.success).to.equal(true);
+    expect(lock.id).to.equal(testKey);
+    expect(lock.index).to.be.above(0);
+
+    const renewLock = await testLock.renewLock(lock, 60 * 100);
+
+    expect(renewLock.success).to.equal(true);
+    expect(renewLock.result).to.equal('renewed');
+    expect(renewLock.id).to.equal(testKey);
+    expect(renewLock.index).to.equal(lock.index);
+
+    const release = await testLock.releaseLock(renewLock);
+    expect(release.success).to.equal(true);
+  });
+
+  it('should not be able to renew and release a lock with a invalid index', async () => {
+    const lock = await testLock.acquireLock(testKey, 60 * 100);
+
+    expect(lock.success).to.equal(true);
+    expect(lock.id).to.equal(testKey);
+    expect(lock.index).to.be.above(0);
+
+    const invalidLock = { id: lock.id, index: lock.index + 1 };
+    const invalidRenewLock = await testLock.renewLock(invalidLock, 60 * 100);
+
+    expect(invalidRenewLock.success).to.equal(false);
+    expect(invalidRenewLock.result).to.equal('conflict');
+    expect(invalidRenewLock.id).to.equal(testKey);
+    expect(invalidRenewLock.index).to.equal(-1);
+
+    const release = await testLock.releaseLock(invalidRenewLock);
+    expect(release.success).to.equal(false);
+  });
+
+  it('should not be able to renew a lock that does not exist', async () => {
+    const nonExistentLock = { id: 'non-existent-lock', index: 0 };
+    const nonExistentRenewLock = await testLock.renewLock(nonExistentLock, 60 * 100);
+
+    expect(nonExistentRenewLock.success).to.equal(false);
+    expect(nonExistentRenewLock.result).to.equal('missing');
+    expect(nonExistentRenewLock.id).to.equal(nonExistentLock.id);
+    expect(nonExistentRenewLock.index).to.equal(-1);
+  });
+
   it('should throw if redis is not provided', function() {
     expect(function() {
       new Lock({

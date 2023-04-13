@@ -241,6 +241,48 @@ class Lock {
       tryAcquire(true);
     });
   }
+
+  /**
+   * Renews a lock in Redis by extending its TTL (time to live).
+   *
+   * @async
+   * @param {Object} lock The lock to renew.
+   * @param {string} lock.id The ID of the lock to renew.
+   * @param {string} lock.index The index of the lock to renew.
+   * @param {number} ttl The new TTL (time to live) for the lock, in milliseconds.
+   *
+   * @returns {Promise<Lock>} A Promise that resolves to an object with the renewed lock's ID, success status, TTL, and index.
+   * @throws {Error} If there is an error executing the renew lock script in Redis.
+   */
+  async renewLock(lock, ttl) {
+    const renewScript = `
+      if redis.call("EXISTS", KEYS[1]) == 0 then
+        return {0, "missing", -1};
+      end;
+
+      local index = redis.call("HGET", KEYS[1], "index");
+      if index ~= ARGV[1] then
+        return {0, "conflict", -1};
+      end;
+
+      redis.call("PEXPIRE", KEYS[1], ARGV[2]);
+      return {1, "renewed", tonumber(ARGV[1])};
+    `;
+    const scriptPromise = deferred();
+    this._scripty.loadScript('renewScript', renewScript, scriptPromise.defer());
+    const script = await scriptPromise;
+
+    const runPromise = deferred();
+    script.run(1, `${this._namespace}:${lock.id}`, lock.index, ttl, runPromise.defer());
+    const evalResponse = await runPromise;
+
+    return {
+      id: lock.id,
+      success: !!evalResponse[0],
+      result: evalResponse[1],
+      index: evalResponse[2],
+    };
+  }
 }
 
 module.exports = Lock;
