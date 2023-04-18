@@ -251,7 +251,7 @@ class Lock {
    * @param {string} lock.index The index of the lock to renew.
    * @param {number} ttl The new TTL (time to live) for the lock, in milliseconds.
    *
-   * @returns {Promise<Lock>} A Promise that resolves to an object with the renewed lock's ID, success status, TTL, and index.
+   * @returns {Promise<Lock>} A Promise that resolves to an object with the renewed lock's ID, success status, status text, and index.
    * @throws {Error} If there is an error executing the renew lock script in Redis.
    */
   async renewLock(lock, ttl) {
@@ -260,8 +260,7 @@ class Lock {
         return {0, "missing", -1};
       end;
 
-      local index = redis.call("HGET", KEYS[1], "index");
-      if index ~= ARGV[1] then
+      if redis.call("HGET", KEYS[1], "index") ~= ARGV[1] then
         return {0, "conflict", -1};
       end;
 
