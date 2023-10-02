@@ -31,7 +31,7 @@
   },
   "homepage": "https://github.com/mixmaxhq/redfour#readme",
   "devDependencies": {
-    "@mixmaxhq/prettier-config": "^1.0.0",
+    "@mixmaxhq/prettier-config": "^1.1.0",
     "chai": "^3.5.0",
     "eslint": "^6.4.0",
     "eslint-config-mixmax": "^2.1.0",
