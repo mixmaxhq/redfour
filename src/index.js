@@ -6,6 +6,8 @@ const redis = require('redis');
 const Scripty = require('node-redis-scripty');
 const { EventEmitter } = require('events');
 
+const noop = () => {};
+
 /**
  * Lock constructor.
  *
@@ -46,6 +48,15 @@ class Lock {
       this._redisConnection = redis.createClient(options.redis);
       this._redisSubscriber = redis.createClient(options.redis);
     }
+    /**
+     * Since subscriber client is created implicitly and
+     * it's being an instance of EventEmitter,
+     * we have to subscribe on error events in order to not
+     * cause crashes where this library is used.
+     *
+     * https://nodejs.org/api/events.html#error-events
+     */
+    this._redisSubscriber.on('error', noop);
 
     // Handler to run LUA scripts. Uses caching if possible
     this._scripty = new Scripty(this._redisConnection);
