@@ -46,6 +46,10 @@ class Lock {
     } else {
       // We assume `options.redis` is a connection string or options object.
       this._redisConnection = redis.createClient(options.redis);
+      /**
+       * Handle errors to avoid process crashes due to unhandled EventEmitter
+       */
+      this._redisConnection.on('error', noop);
       this._redisSubscriber = redis.createClient(options.redis);
     }
     /**
