@@ -1,5 +1,7 @@
 ## Release History
 
+* 2.2.2 Added `noop` handling of `error` events for internal redis connection
+
 * 2.2.1 Added `noop` handling of `error` events for internal redis subscriber connection
 
 * 2.2.0 Add renew lock functionality
