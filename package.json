@@ -6,8 +6,10 @@
     "node": ">=7.6.0"
   },
   "main": "src/index.js",
+  "types": "index.d.ts",
   "files": [
-    "src"
+    "src",
+    "index.d.ts"
   ],
   "scripts": {
     "ci": "npm run lint && npm test",
